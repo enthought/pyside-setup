@@ -1,12 +1,12 @@
 [submodule "sources/shiboken"]
 	path = sources/shiboken
-	url = git@github.com:enthought/Shiboken.git
+	url = https://github.com/enthought/Shiboken.git
 [submodule "sources/pyside"]
 	path = sources/pyside
-	url = git@github.com:enthought/PySide.git
+	url = https://github.com/enthought/PySide.git
 [submodule "sources/pyside-tools"]
 	path = sources/pyside-tools
-	url = git@github.com:enthought/PySide-Tools.git
+	url = https://github.com/enthought/PySide-Tools.git
 [submodule "sources/pyside-examples"]
 	path = sources/pyside-examples
 	url = https://git.gitorious.org/pyside/pyside-examples.git
