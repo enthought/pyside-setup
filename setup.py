@@ -37,19 +37,19 @@ submodules = {
         ["shiboken", "master"],
         ["pyside", "master"],
         ["pyside-tools", "master"],
-        ["pyside-examples", "master"],
+        #["pyside-examples", "master"],
     ],
     '1.1.2': [
         ["shiboken", "1.1.2"],
         ["pyside", "1.1.2"],
         ["pyside-tools", "0.2.14"],
-        ["pyside-examples", "master"],
+        #["pyside-examples", "master"],
     ],
     '1.1.1': [
         ["shiboken", "1.1.1"],
         ["pyside", "1.1.1"],
         ["pyside-tools", "0.2.14"],
-        ["pyside-examples", "master"],
+        #["pyside-examples", "master"],
     ],
 }
 
@@ -70,7 +70,7 @@ from distutils.sysconfig import get_config_var
 from distutils.spawn import find_executable
 from distutils.command.build import build as _build
 
-from setuptools import setup
+from setuptools import setup, Extension
 from setuptools.command.install import install as _install
 from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
 
@@ -560,10 +560,10 @@ class pyside_build(_build):
             "{setup_dir}/PySide/include",
             logger=log, vars=vars)
         # <sources>/pyside-examples/examples/* -> <setup>/PySide/examples
-        copydir(
-            "{sources_dir}/pyside-examples/examples",
-            "{setup_dir}/PySide/examples",
-            force=False, logger=log, vars=vars)
+        #copydir(
+        #    "{sources_dir}/pyside-examples/examples",
+        #    "{setup_dir}/PySide/examples",
+        #    force=False, logger=log, vars=vars)
         # Copy Qt libs to package
         if OPTION_STANDALONE:
             # <qt>/bin/* -> <setup>/PySide
@@ -651,10 +651,10 @@ class pyside_build(_build):
             "{setup_dir}/PySide/include",
             logger=log, vars=vars)
         # <sources>/pyside-examples/examples/* -> <setup>/PySide/examples
-        copydir(
-            "{sources_dir}/pyside-examples/examples",
-            "{setup_dir}/PySide/examples",
-            force=False, logger=log, vars=vars)
+        #copydir(
+        #    "{sources_dir}/pyside-examples/examples",
+        #    "{setup_dir}/PySide/examples",
+        #    force=False, logger=log, vars=vars)
         # <ssl_libs>/* -> <setup>/PySide/
         copydir("{ssl_libs_dir}", "{setup_dir}/PySide",
             filter=[
@@ -773,4 +773,12 @@ setup(
         'bdist_egg': pyside_bdist_egg,
         'install': pyside_install,
     },
+    
+    # Add a bogus extension module (will never be built here since we are
+    # overriding the build command to do it using cmake) so things like
+    # bdist_egg will know that there are extension modules and will name the
+    # dist with the full platform info.
+    ext_modules = [Extension('QtCore', [])],
+    ext_package = 'PySide',
+      
 )
