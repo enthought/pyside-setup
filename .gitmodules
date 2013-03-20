@@ -1,9 +1,9 @@
 [submodule "sources/shiboken"]
 	path = sources/shiboken
-	url = https://github.com/enthought/Shiboken.git
+	url = https://github.com/RobinD42/shiboken.git
 [submodule "sources/pyside"]
 	path = sources/pyside
-	url = https://github.com/enthought/PySide.git
+	url = https://github.com/RobinD42/pyside.git
 [submodule "sources/pyside-tools"]
 	path = sources/pyside-tools
 	url = https://github.com/enthought/PySide-Tools.git
