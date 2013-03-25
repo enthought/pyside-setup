@@ -31,25 +31,31 @@ Building 64bit version is not supported with Visual Studio 2008 Express Edition.
 """
 
 __version__ = "1.1.3dev"
+__version__ = "1.1.2en"
 
 submodules = {
     __version__: [
         ["shiboken", "master"],
         ["pyside", "master"],
         ["pyside-tools", "master"],
-        ["pyside-examples", "master"],
+        #["pyside-examples", "master"],
+    ],
+    '1.1.2en': [
+        ["shiboken", "1.1.2en"],
+        ["pyside", "1.1.2en"],
+        ["pyside-tools", "master"],        
     ],
     '1.1.2': [
         ["shiboken", "1.1.2"],
         ["pyside", "1.1.2"],
         ["pyside-tools", "0.2.14"],
-        ["pyside-examples", "master"],
+        #["pyside-examples", "master"],
     ],
     '1.1.1': [
         ["shiboken", "1.1.1"],
         ["pyside", "1.1.1"],
         ["pyside-tools", "0.2.14"],
-        ["pyside-examples", "master"],
+        #["pyside-examples", "master"],
     ],
 }
 
@@ -70,7 +76,7 @@ from distutils.sysconfig import get_config_var
 from distutils.spawn import find_executable
 from distutils.command.build import build as _build
 
-from setuptools import setup
+from setuptools import setup, Extension
 from setuptools.command.install import install as _install
 from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
 
@@ -85,6 +91,7 @@ from utils import option_value
 
 # Declare options
 OPTION_DEBUG = has_option("debug")
+OPTION_RELWITHDEBINFO = has_option('relwithdebinfo')
 OPTION_QMAKE = option_value("qmake")
 OPTION_CMAKE = option_value("cmake")
 OPTION_OPENSSL = option_value("openssl")
@@ -142,10 +149,13 @@ Use --list-versions option to get list of available versions""" % OPTION_VERSION
     __version__ = OPTION_VERSION
 
 # Initialize, pull and checkout submodules
-if os.path.isdir(".git"):
+if not OPTION_ONLYPACKAGE and os.path.isdir(".git"):
     print("Initializing submodules for PySide version %s" % __version__)
     git_update_cmd = ["git", "submodule", "update", "--init"]
     if run_process(git_update_cmd) != 0:
+        raise DistutilsSetupError("Failed to initialize the git submodules")
+    git_pull_cmd = ["git", "submodule", "foreach", "git", "fetch", "origin"]
+    if run_process(git_pull_cmd) != 0:
         raise DistutilsSetupError("Failed to initialize the git submodules")
     git_pull_cmd = ["git", "submodule", "foreach", "git", "pull", "origin", "master"]
     if run_process(git_pull_cmd) != 0:
@@ -265,6 +275,8 @@ class pyside_build(_build):
         
         # Prepare parameters
         build_type = OPTION_DEBUG and "Debug" or "Release"
+        if OPTION_RELWITHDEBINFO:
+            build_type = 'RelWithDebInfo'
         py_executable = sys.executable
         py_version = "%s.%s" % (sys.version_info[0], sys.version_info[1])
         py_include_dir = get_config_var("INCLUDEPY")
@@ -454,6 +466,9 @@ class pyside_build(_build):
             cmake_cmd.append("-DPYTHON_LIBRARY=%s" % self.py_library)
             if self.build_type.lower() == 'debug':
                 cmake_cmd.append("-DPYTHON_DEBUG_LIBRARY=%s" % self.py_library)
+            if sys.platform == "win32" and self.build_type.lower() == 'debug':
+                cmake_cmd.append("-DCMAKE_DEBUG_POSTFIX=_d")
+                
         if extension.lower() == "shiboken":
             cmake_cmd.append("-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=yes")
             if sys.version_info[0] > 2:
@@ -494,6 +509,7 @@ class pyside_build(_build):
         }
         os.chdir(self.script_dir)
         if sys.platform == "win32":
+            vars['dbgPostfix'] = OPTION_DEBUG and "_d" or ""
             return self.prepare_packages_win32(vars)
         return self.prepare_packages_linux(vars)
 
@@ -556,10 +572,10 @@ class pyside_build(_build):
             "{setup_dir}/PySide/include",
             logger=log, vars=vars)
         # <sources>/pyside-examples/examples/* -> <setup>/PySide/examples
-        copydir(
-            "{sources_dir}/pyside-examples/examples",
-            "{setup_dir}/PySide/examples",
-            force=False, logger=log, vars=vars)
+        #copydir(
+        #    "{sources_dir}/pyside-examples/examples",
+        #    "{setup_dir}/PySide/examples",
+        #    force=False, logger=log, vars=vars)
         # Copy Qt libs to package
         if OPTION_STANDALONE:
             # <qt>/bin/* -> <setup>/PySide
@@ -594,23 +610,35 @@ class pyside_build(_build):
                 logger=log, vars=vars)
 
     def prepare_packages_win32(self, vars):
+        pdbs = ['*.pdb'] if self.debug or self.build_type == 'RelWithDebInfo' else []       
         # <install>/lib/site-packages/PySide/* -> <setup>/PySide
         copydir(
             "{install_dir}/lib/site-packages/PySide",
             "{setup_dir}/PySide",
             logger=log, vars=vars)
-        if self.debug:
+        if self.debug or self.build_type == 'RelWithDebInfo':
             # <build>/pyside/PySide/*.pdb -> <setup>/PySide
             copydir(
                 "{build_dir}/pyside/PySide",
                 "{setup_dir}/PySide",
-                filter=["*.pdb"],
+                filter=pdbs,
+                recursive=False, logger=log, vars=vars)
+            # <build>/pyside/libpyside/*.pdb -> <setup>/PySide
+            copydir(
+                "{build_dir}/pyside/libpyside",
+                "{setup_dir}/PySide",
+                filter=pdbs,
                 recursive=False, logger=log, vars=vars)
         # <install>/lib/site-packages/shiboken.pyd -> <setup>/PySide/shiboken.pyd
         copyfile(
-            "{install_dir}/lib/site-packages/shiboken.pyd",
-            "{setup_dir}/PySide/shiboken.pyd",
+            "{install_dir}/lib/site-packages/shiboken{dbgPostfix}.pyd",
+            "{setup_dir}/PySide/shiboken{dbgPostfix}.pyd",
             logger=log, vars=vars)
+        if self.debug or self.build_type == 'RelWithDebInfo':
+            copyfile(
+                "{build_dir}/shiboken/shibokenmodule/shiboken{dbgPostfix}.pdb",
+                "{setup_dir}/PySide/shiboken{dbgPostfix}.pdb",
+                logger=log, vars=vars)        
         # <install>/lib/site-packages/pysideuic/* -> <setup>/pysideuic
         copydir(
             "{install_dir}/lib/site-packages/pysideuic",
@@ -624,11 +652,11 @@ class pyside_build(_build):
             "{install_dir}/bin/pyside-uic",
             "{setup_dir}/PySide/scripts/uic.py",
             force=False, logger=log, vars=vars)
-        # <install>/bin/*.exe,*.dll -> PySide/
+        # <install>/bin/*.exe,*.dll,*.pdb -> PySide/
         copydir(
             "{install_dir}/bin/",
             "{setup_dir}/PySide",
-            filter=["*.exe", "*.dll"],
+            filter=["*.exe", "*.dll"] + pdbs,
             recursive=False, logger=log, vars=vars)
         # <install>/lib/*.lib -> PySide/
         copydir(
@@ -647,16 +675,17 @@ class pyside_build(_build):
             "{setup_dir}/PySide/include",
             logger=log, vars=vars)
         # <sources>/pyside-examples/examples/* -> <setup>/PySide/examples
-        copydir(
-            "{sources_dir}/pyside-examples/examples",
-            "{setup_dir}/PySide/examples",
-            force=False, logger=log, vars=vars)
+        #copydir(
+        #    "{sources_dir}/pyside-examples/examples",
+        #    "{setup_dir}/PySide/examples",
+        #    force=False, logger=log, vars=vars)
         # <ssl_libs>/* -> <setup>/PySide/
         copydir("{ssl_libs_dir}", "{setup_dir}/PySide",
             filter=[
                 "libeay32.dll",
                 "ssleay32.dll"],
             force=False, logger=log, vars=vars)
+        
         # <qt>/bin/*.dll -> <setup>/PySide
         copydir("{qt_bin_dir}", "{setup_dir}/PySide",
             filter=[
@@ -671,15 +700,40 @@ class pyside_build(_build):
         if self.debug:
             # <qt>/bin/*d4.dll -> <setup>/PySide
             copydir("{qt_bin_dir}", "{setup_dir}/PySide",
-                filter=["*d4.dll"],
+                filter=["*d4.dll"] + pdbs,
                 recursive=False, logger=log, vars=vars)
+
+        if self.debug  or self.build_type == 'RelWithDebInfo':
+            # <qt>/lib/*.pdb -> <setup>/PySide
+            copydir("{qt_lib_dir}", "{setup_dir}/PySide",
+                filter=["*.pdb"],
+                recursive=False, logger=log, vars=vars)
+            
+        # I think these are the qt-mobility DLLs, at least some are,
+        # so let's copy them too
+        # <qt>/lib/*.dll -> <setup>/PySide
+        copydir("{qt_lib_dir}", "{setup_dir}/PySide",
+            filter=["*.dll"],
+            ignore=["*d?.dll"],
+            recursive=False, logger=log, vars=vars)
+        if self.debug:
+            # <qt>/lib/*d4.dll -> <setup>/PySide
+            copydir("{qt_lib_dir}", "{setup_dir}/PySide",
+                filter=["*d?.dll"],
+                recursive=False, logger=log, vars=vars)
+        if self.debug  or self.build_type == 'RelWithDebInfo':
+            # <qt>/lib/*pdb -> <setup>/PySide
+            copydir("{qt_lib_dir}", "{setup_dir}/PySide",
+                filter=pdbs,
+                recursive=False, logger=log, vars=vars)
+        
         # <qt>/plugins/* -> <setup>/PySide/plugins
         copydir("{qt_plugins_dir}", "{setup_dir}/PySide/plugins",
-            filter=["*.dll"],
+            filter=["*.dll"]+pdbs,
             logger=log, vars=vars)
         # <qt>/imports/* -> <setup>/PySide/imports
         copydir("{qt_imports_dir}", "{setup_dir}/PySide/imports",
-            filter=["qmldir", "*.dll"],
+            filter=["qmldir", "*.dll"]+pdbs,
             logger=log, vars=vars)
         # <qt>/translations/* -> <setup>/PySide/translations
         copydir("{qt_translations_dir}", "{setup_dir}/PySide/translations",
@@ -748,4 +802,12 @@ setup(
         'bdist_egg': pyside_bdist_egg,
         'install': pyside_install,
     },
+    
+    # Add a bogus extension module (will never be built here since we are
+    # overriding the build command to do it using cmake) so things like
+    # bdist_egg will know that there are extension modules and will name the
+    # dist with the full platform info.
+    ext_modules = [Extension('QtCore', [])],
+    ext_package = 'PySide',
+      
 )
