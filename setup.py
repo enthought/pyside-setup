@@ -31,6 +31,7 @@ Building 64bit version is not supported with Visual Studio 2008 Express Edition.
 """
 
 __version__ = "1.1.3dev"
+__version__ = "1.1.2en"
 
 submodules = {
     __version__: [
@@ -38,6 +39,11 @@ submodules = {
         ["pyside", "master"],
         ["pyside-tools", "master"],
         #["pyside-examples", "master"],
+    ],
+    '1.1.2en': [
+        ["shiboken", "1.1.2en"],
+        ["pyside", "1.1.2en"],
+        ["pyside-tools", "master"],        
     ],
     '1.1.2': [
         ["shiboken", "1.1.2"],
